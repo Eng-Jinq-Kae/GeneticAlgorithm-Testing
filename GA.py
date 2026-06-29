@@ -9,7 +9,7 @@ os.system('cls')
 
 print("\n==New Run==")
 
-df = pd.read_csv( "E:\\UUM Course\\A252_Heu\\Heu-Project\\data\\matrix100.csv")
+df = pd.read_csv( ".\\data\\matrix100.csv")
 # print(len(df.columns))
 
 POPULATION_SIZE = 10
