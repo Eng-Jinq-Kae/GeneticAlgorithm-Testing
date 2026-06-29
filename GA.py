@@ -1,0 +1,339 @@
+import os
+import pandas as pd
+import random
+import math
+import copy
+import os
+
+os.system('cls')
+
+print("\n==New Run==")
+
+df = pd.read_csv( "E:\\UUM Course\\A252_Heu\\Heu-Project\\data\\matrix100.csv")
+# print(len(df.columns))
+
+POPULATION_SIZE = 10
+PROB_CROSS = 0.6
+num_cell = len(df.columns)
+PROB_MUTAT = 0.2
+
+def generate_child(left_child,right_child):
+    '''Pairing up the child, while make sure no duplicated'''
+
+    duplicate_indices = []
+    duplicates = []
+    for i, task in enumerate(right_child):
+        if task in left_child:
+            duplicate_indices.append(i)
+            duplicates.append(task)
+    # print("Duplicate indices:", duplicate_indices)
+    # print("Duplicated tasks:", duplicates)
+    # print(len(duplicates))
+
+    missing = []
+    for task in range(100):
+        if task not in left_child and task not in right_child:
+            missing.append(task)
+    # print("Missing tasks:", missing)
+    # print(len(missing))
+
+    for i in range(len(duplicate_indices)):
+        idx = duplicate_indices[i]
+        right_child[idx] = missing[i]
+    
+    # print(left_child)
+    # print(right_child)
+
+    child = left_child + right_child
+    return child
+
+
+
+folder = "E:\\UUM Course\\A252_Heu\\Heu-Project\\data"
+
+key = 1
+solutions = {}
+rand10_task_solutions = {}   # <-- new dictionary
+costs = {}
+
+for filename in os.listdir(folder):
+    if filename.startswith("assign100-RndSol") and filename.endswith(".txt"):
+        filepath = os.path.join(folder, filename)
+
+        with open(filepath, "r") as f:
+            lines = f.readlines()
+
+        if len(lines) >= 4:
+            # Second line: Total cost = 5397.0
+            cost = float(lines[1].split("=")[1].strip())
+            # costs.append(cost)
+            costs[key] = [cost]
+
+            # Row 4 until end (Python index 3 onward)
+            assignments = [line.strip() for line in lines[3:]]
+
+            solutions[key] = [cost, assignments]
+
+             # Extract only the task IDs
+            tasks = []
+            for line in assignments[1:]:     # skip header "~Worker~Task~Cost"
+                _, worker, task, _ = line.split("~")
+                tasks.append(int(task))
+
+            rand10_task_solutions[key] = tasks
+
+            key += 1
+
+# print("\n~Worker ~Task ~Cost:")
+# print(solutions)
+
+print("\nRand 10 Solutions:")
+print(rand10_task_solutions)
+
+# z(x) [0]
+print("\nRand solution: ", costs)
+
+# Roulette wheel of min
+max_cost = 0
+for value in costs.values():
+    if value[0] > max_cost:
+        max_cost = value[0]
+print("\nMax Cost: ", max_cost)
+
+# diff [1]
+sum_diff = 0
+max_cost = max_cost + 1
+for key, value in costs.items():
+    diff = max_cost - value[0]
+    value.append(diff)
+    sum_diff += diff
+print("\nRand solution + Diff: ", costs)
+
+# Perc [2]
+print ("\nSum Diff: ", sum_diff)
+for key, value in costs.items():
+    perc = round((value[1] / sum_diff)*100,0)
+    value.append(perc)
+# print("Rand solution + Perc ", costs)
+
+# CumPerc [3]
+cum_perc = 0
+for key, value in costs.items():
+    cur_perc = value[2]
+    cum_perc += cur_perc
+    value.append(cum_perc)
+print("\nRand solution + CumPerc: ", costs)
+
+# Rand list
+num_parent = int(POPULATION_SIZE * PROB_CROSS)
+# plus 1 if num_parent is odd number
+if num_parent % 2 == 1:
+    num_parent += 1
+rand_list = []
+# rand_list = [None] * num_parent
+for i in range(num_parent):
+    rand_list.append(random.randint(0, 99)) # range 00 - 99
+print("\nRand list: ", rand_list)
+
+# Select Parent
+parent_rnd_list = []
+for rand in rand_list:
+    for key, value in costs.items():
+        if rand < value[3]:
+            parent = key
+            parent_rnd_list.append(parent)
+            break
+print("\nParent list: ", parent_rnd_list)
+
+# Parent crossover
+# 1 point crossover at the middle
+print()
+dict_parent = {}
+dict_child = {}
+j = 0 # Pair
+k= 1 # For dict
+p = 1 # For print parent
+c = 1 # For print child
+for i in range (0,num_parent,2):
+    # print(f"Pair {j+1}")
+    parent_left = parent_rnd_list[i]
+    parent_right = parent_rnd_list[i+1]
+
+    # # Read parent solution
+    # parent_left_path = f'.\\data\\assign100-RndSol-{parent_left}.txt'
+    # parent_right_path = f'.\\data\\assign100-RndSol-{parent_right}.txt'
+
+    # with open(parent_left_path, "r") as l:
+    #     sol_left = l.readlines()
+
+    # with open(parent_right_path, "r") as r:
+    #     sol_right = r.readlines()
+
+    # sol1 = [line.strip() for line in sol_left[3:]]
+    # sol2 = [line.strip() for line in sol_right[3:]]
+
+    # parent1 = []
+    # parent2 = []
+
+    # for line in sol1[1:]:
+    #     _, worker, task, _ = line.split("~")
+    #     # parent1.append((worker, task))
+    #     parent1.append(int(task))
+
+    # for line in sol2[1:]:
+    #     _, worker, task, _ = line.split("~")
+    #     # parent2.append((worker, task))
+    #     parent2.append(int(task))
+
+    parent1 = rand10_task_solutions[parent_left]
+    parent2 = rand10_task_solutions[parent_right]
+    
+    mid = len(parent1) // 2
+
+    child1 = generate_child(parent1[:mid],parent2[mid:])
+    child2 = generate_child(parent2[:mid],parent1[mid:])
+
+    # print("Parent 1")
+    # print(sol1)
+
+    # print("Parent 2")
+    # print(sol2)
+
+    print(f"Parent Pair {j+1}: ", parent_left, parent_right)
+
+    print(f"Parent {p}")
+    print(parent1)
+    p += 1
+    print(f"Parent {p}")
+    print(parent2)
+    p += 1
+
+    print()
+
+    print(f"Child {c}")
+    print(child1)
+    c += 1
+    print(f"Child {c}")
+    print(child2)
+    c += 1
+
+
+    dict_parent[k] = parent1
+    dict_child[k] = child1
+    k += 1
+
+    
+    dict_parent[k] = parent2
+    dict_child[k] = child2
+    k += 1
+
+    j += 1
+    print()
+
+print("\nParent:")
+print(dict_parent)
+
+print("\nChild:")
+print(dict_child)
+
+# Mutation
+dict_child_mut = copy.deepcopy(dict_child)
+num_mutation = int(num_cell * PROB_MUTAT)
+print("\nNum mutation: ", num_mutation)
+
+mutation_list = []
+# for x in range(num_mutation):
+#     idx_mut = random.randint(1, 100)
+#     mutation_list.append(idx_mut)
+mutation_list = random.sample(range(100), num_mutation)
+print("\nRand Inx: ", mutation_list)
+
+for child_id, chromosome in dict_child_mut.items():
+    for i in range(0, len(mutation_list), 2):
+        # print("\n Mutation Index: ", mutation_list[i])
+        idx1 = mutation_list[i]
+        idx2 = mutation_list[i + 1]
+        # Swap
+        chromosome[idx1], chromosome[idx2] = chromosome[idx2], chromosome[idx1]
+
+print("\nChild:")
+print(dict_child)
+print("\nChild Mutation:")
+print(dict_child_mut)
+
+# Calculate z(x)
+new_costs = {}
+cost_df = pd.read_csv('.\\data\\matrix100.csv', header=None)
+# print(cost_df.shape)
+for child_id, chromosome in dict_child_mut.items():
+    total_cost = 0
+    for worker, task in enumerate(chromosome):
+        total_cost += cost_df.iloc[worker][task]
+    new_costs[child_id] = float(total_cost)
+
+# Best solution z(x)
+print()
+best_solution = {}
+best_child = min(new_costs, key=new_costs.get)
+best_solution = {
+    "id": best_child,
+    "cost": new_costs[best_child],
+    "chromosome": dict_child_mut[best_child]
+}
+print("Generation Best Solution")
+print("Child ID:", best_solution["id"])
+print("Cost:", best_solution["cost"])
+print("Chromosome:", best_solution["chromosome"])
+
+
+# Elitism
+ori_costs = {}
+for key, value in costs.items():
+    ori_costs[key] = float(value[0])
+# print("\nOld z(x): ", ori_costs)
+# print("\nNew z(x): ", new_costs)
+
+# Get the 4 smallest
+best4 = sorted(ori_costs.items(), key=lambda x: x[1])[:4]
+# print(best4)
+dict_best4 = {}
+for i, (_, value) in enumerate(best4, start=num_parent+1):
+    dict_best4[i] = value
+# print(dict_best4)
+
+# add them into new population
+# Join into a new dictionary
+costs = new_costs | dict_best4
+print("\nRand solution: ", costs)
+
+# New population (solution representations)
+new_population = {}
+
+# First, add the 6 mutated children
+for key, chromosome in dict_child_mut.items():
+    new_population[key] = chromosome
+
+# Then, add the 4 elite chromosomes
+new_key = num_parent + 1
+for old_key, _ in best4:
+    new_population[new_key] = rand10_task_solutions[old_key]
+    new_key += 1
+
+print(new_population)
+
+rand10_task_solutions = copy.deepcopy(new_population)
+
+# Discuss and compare 
+
+# param 1
+# cross - 0.7
+
+# param 2
+# cross - 0.6
+
+# compare result
+# higher? better?
+# same problem/solution with different param
+# one param enough to focus only
+
+
