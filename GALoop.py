@@ -3,19 +3,13 @@ import pandas as pd
 import random
 import math
 import copy
-import os
+import time
+import matplotlib.pyplot as plt
+import matplotlib.cm as cm
+import matplotlib.colors as mcolors
+from datetime import datetime
 
 os.system('cls')
-
-folder = ".\\data"
-
-df = pd.read_csv( ".\\data\\matrix100.csv")
-# print(len(df.columns))
-
-POPULATION_SIZE = 10
-PROB_CROSS = 0.6
-num_cell = len(df.columns)
-PROB_MUTAT = 0.2
 
 def generate_child(left_child,right_child):
     '''Pairing up the child, while make sure no duplicated'''
@@ -50,7 +44,7 @@ def generate_child(left_child,right_child):
 costs = {}
 rand10_task_solutions = {}   # <-- new dictionary
 local_zx_dict = {}
-def solveGA(loopGA, rand10_task_solutions, costs):
+def solveGA(loopGA, rand10_task_solutions, costs, prob_mutat):
     print(f"==New Run {loopGA}==")
 
     key = 1
@@ -240,7 +234,7 @@ def solveGA(loopGA, rand10_task_solutions, costs):
 
     # Mutation
     dict_child_mut = copy.deepcopy(dict_child)
-    num_mutation = int(num_cell * PROB_MUTAT)
+    num_mutation = int(num_cell * prob_mutat)
     # print("\nNum mutation: ", num_mutation)
 
     mutation_list = []
@@ -337,44 +331,140 @@ def solveGA(loopGA, rand10_task_solutions, costs):
 
     rand10_task_solutions = copy.deepcopy(new_population)
 
+    # print(f"Prob Mutation: {prob_mutat}")
     print(f"==Done Run {loopGA}==\n")
 
     return best_solution, rand10_task_solutions, costs
 
+def create_bar_chart(x_list, y_list):
+    # Create figure
+    plt.figure(figsize=(8, 5))
+
+    # Normalize the cost values
+    norm = mcolors.Normalize(vmin=min(y_list), vmax=max(y_list))
+
+    # Use only 20% to 80% of the colormap
+    # Lower cost = darker blue
+    colors = cm.Blues_r(0.1 + 0.8 * norm(y_list))
+
+    # Plot the bars
+    bars = plt.bar(
+        x_list,
+        y_list,
+        width=0.05,
+        color=colors,
+        edgecolor='black',      # Makes every bar easier to distinguish
+        linewidth=0.8
+    )
+
+    # Add value labels above each bar
+    for bar, value in zip(bars, y_list):
+        plt.text(
+            bar.get_x() + bar.get_width() / 2,
+            bar.get_height() + (max(y_list) * 0.005),   # Small gap above bar
+            f"{value:.2f}",                             # Change to .0f if integer
+            ha='center',
+            va='bottom',
+            fontsize=9
+        )
+
+    # Labels and title
+    plt.xlabel("Mutation Probability")
+    plt.ylabel("Best Cost")
+    plt.title("Cost by Mutation Probability")
+
+    # Show every mutation probability on the x-axis
+    plt.xticks(x_list)
+
+    # Add a light horizontal grid
+    plt.grid(axis='y', alpha=0.3)
+
+    # Prevent labels from being cut off
+    plt.tight_layout()
+
+    # Display the plot
+    plt.show()
+
+def save_prob_mutat_cost(output_mut, loopGALimit, prob_mut_list, best_cost_list):
+    # Append to file
+    with open(output_mut, "a") as f:
+        f.write(f"Mutation Probabilities and Cost Loop: {loopGALimit}\n")
+        f.write("~" + str(prob_mut_list) + "\n")
+        f.write("~" + str(best_cost_list) + "\n\n")
+
+def save_sol_assg(output_sol, prob_mutat, loopGALimit, best_solution):
+    # Save sol representation
+    batch_id = (
+        f"{int(prob_mutat*10)}_{loopGALimit}_{int(best_solution['cost'])}_"
+        f"{datetime.now().strftime('%Y_%m_%d_%H_%M_%S')}"
+    )
+    print(batch_id)
+    # print(len(best_solution["chromosome"]))
+    # Create output directory if it doesn't exist
+    os.makedirs(output_sol, exist_ok=True)
+
+    # Create filename
+    file_sol = os.path.join(output_sol, f"{batch_id}.txt")
+
+    # Write to file
+    with open(file_sol, "w") as f:
+        f.write(batch_id + "\n")       # First line
+        f.write("\n")                  # Second line (blank)
+        f.write(str(best_solution["chromosome"]) + "\n")  # Third line
+
 if __name__ == "__main__":
+    folder = ".\\data"
+    output_sol = ".\\sol"
+    output_mut = ".\\output\\output_mut.txt"
+
+    df = pd.read_csv( ".\\data\\matrix100.csv")
+    # print(len(df.columns))
+
+    POPULATION_SIZE = 10
+    PROB_CROSS = 0.6
+    num_cell = len(df.columns)
+    prob_mut_list = [0.2,0.3,0.4,0.5,0.6,0.7,0.8]
+    best_cost_list = []
+    loopGALimit = 20
+
     print(f"\n{'*' * 50} START {'*' * 50}")
 
-    loopGA = 0
-    loopGALimit = 30
-    while loopGA < loopGALimit:
-        best_solution, rand10_task_solutions, costs = solveGA(
-        loopGA,
-        rand10_task_solutions,
-        costs
-        )
-        loopGA += 1
+    start_time = time.perf_counter()
+    for prob_mutat in prob_mut_list:
+        # print(f"Prob Mutation: {prob_mutat}")
+        loopGA = 0
+        while loopGA < loopGALimit:
+            best_solution, rand10_task_solutions, costs = solveGA(
+            loopGA,
+            rand10_task_solutions,
+            costs,
+            prob_mutat
+            )
+            loopGA += 1
 
-    print(f"\nExit Solve GA with loops count: {loopGALimit}")
-    print("Generation Best Solution")
-    print("Child ID:", best_solution["id"])
-    print("Cost:", best_solution["cost"])
-    print("Chromosome:", best_solution["chromosome"])
+        print(f"\nExit Solve GA of prob mutation {prob_mutat} with loops count: {loopGALimit}")
+        print("Generation Best Solution")
+        print("Child ID:", best_solution["id"])
+        print("Cost:", best_solution["cost"])
+        # print("Chromosome:", best_solution["chromosome"])
+        best_cost_list.append(best_solution["cost"])
 
-    print("\nHistorical Loop Local: ", local_zx_dict)
+        save_sol_assg(output_sol, prob_mutat, loopGALimit, best_solution)
 
+    # print("Historical Loop Local: ", local_zx_dict)
+    end_time = time.perf_counter()
+
+    # print()
+    # print(prob_mut_list)
+    # print(best_cost_list)
+
+    save_prob_mutat_cost(output_mut, loopGALimit, prob_mut_list, best_cost_list)
+
+    create_bar_chart(prob_mut_list,best_cost_list)
+
+    print()
+    print(f"Number parameter: {len(prob_mut_list)}")
+    print(f"Number loop per parameter: {loopGALimit}")
+    print(f"Solve Time: {end_time - start_time:.3f} seconds")
+    
     print(f"\n{'*' * 50} END {'*' * 50}")
-
-# Discuss and compare 
-
-# param 1
-# cross - 0.7
-
-# param 2
-# cross - 0.6
-
-# compare result
-# higher? better?
-# same problem/solution with different param
-# one param enough to focus only
-
-
